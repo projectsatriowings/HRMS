@@ -1,4 +1,10 @@
-import { PrismaClient, Role, EmployeeStatus, AttendanceStatus } from '@prisma/client';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+import { PrismaClient, Role, EmployeeStatus } from '@prisma/client';
+
+// Load environment variables from repository root .env or local .env
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config();
 
 const prisma = new PrismaClient();
 

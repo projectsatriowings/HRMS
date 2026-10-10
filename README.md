@@ -48,10 +48,11 @@ Internal Human Resource Management System (HRMS) built for our company, architec
 > **IMPORTANT**: Never enter real employee data or credentials into the development database. Use only fictional seed data.
 
 ### Run Initial Migration:
-Apply the versioned migration (`20261010120000_init`):
+Apply the versioned migration (`20261010000000_init`):
 ```bash
 pnpm db:migrate
 ```
+> **CRITICAL RULE**: Never run `prisma migrate reset`, delete, or overwrite the database without explicit approval. All database schema evolutions must be tracked through versioned migrations (`prisma migrate dev` / `prisma migrate deploy`).
 
 ### Seed Synthetic Fictional Profiles:
 ```bash
@@ -85,6 +86,10 @@ pnpm build
 # Run type checks across all workspaces:
 pnpm type-check
 
+# Run linter across all workspaces:
+pnpm lint
+
 # Run automated tests:
 pnpm test
 ```
+
