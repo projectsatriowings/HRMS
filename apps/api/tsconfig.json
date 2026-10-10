@@ -1,0 +1,9 @@
+{
+  "extends": "@hrms/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./"
+  },
+  "include": ["src/**/*"]
+}

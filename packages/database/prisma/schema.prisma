@@ -1,0 +1,409 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  HR_ADMIN
+  OWNER
+  PLATFORM_ADMIN
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PROBATION
+  NOTICE_PERIOD
+  RESIGNED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+  ON_LEAVE
+  HOLIDAY
+  WEEKEND
+  MISSING_CHECKOUT
+}
+
+enum LeaveHalfDayPeriod {
+  FIRST_HALF
+  SECOND_HALF
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  CHECK_IN
+  CHECK_OUT
+  MANUAL_CORRECTION
+  APPROVE
+  REJECT
+  CANCEL
+  CSV_IMPORT
+  CSV_EXPORT
+}
+
+// -------------------------------------------------------------
+// MULTI-TENANCY & COMPANY SETTINGS
+// -------------------------------------------------------------
+
+model Company {
+  id              String      @id @default(uuid())
+  slug            String      @unique
+  name            String
+  code            String?     @unique
+  logoUrl         String?
+  timezone        String      @default("Asia/Kolkata")
+  
+  // HR Admin Configurable Work Schedule & Policy Rules
+  workDayStart            String      @default("09:30") // 24-hr format HH:mm
+  workDayEnd              String      @default("18:30") // 24-hr format HH:mm
+  fullDayMinHours         Decimal     @default(8.00) @db.Decimal(4, 2)
+  halfDayMinHours         Decimal     @default(4.00) @db.Decimal(4, 2)
+  gracePeriodMinutes      Int         @default(15)
+  weeklyOffDays           Int[]       @default([0, 6]) // 0=Sunday, 6=Saturday
+  allowSelfRegularization Boolean     @default(true)
+  maxRegularizationDays   Int         @default(7) // Days allowed in past to request correction
+
+  // Extensible attendance restrictions (disabled by default in initial release)
+  enforceIpRestriction   Boolean     @default(false)
+  allowedIpSubnets        String[]    @default([])
+  enforceGeofence         Boolean     @default(false)
+  geofenceLatitude        Decimal?    @db.Decimal(9, 6)
+  geofenceLongitude       Decimal?    @db.Decimal(9, 6)
+  geofenceRadiusMeters    Int?        @default(100)
+
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  memberships       Membership[]
+  employees         Employee[]
+  departments       Department[]
+  attendanceRecords AttendanceRecord[]
+  leaveTypes        LeaveType[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  leaveHistories    LeaveHistory[]
+  holidays          Holiday[]
+  auditLogs         AuditLog[]
+
+  @@map("companies")
+}
+
+model User {
+  id              String      @id @default(uuid())
+  email           String      @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  phone           String?
+  avatarUrl       String?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  memberships     Membership[]
+  employees       Employee[]
+  auditLogs       AuditLog[]  @relation("ActorAuditLogs")
+
+  @@map("users")
+}
+
+model Membership {
+  id          String    @id @default(uuid())
+  companyId   String
+  userId      String
+  role        Role      @default(EMPLOYEE)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId])
+  @@map("memberships")
+}
+
+// -------------------------------------------------------------
+// DEPARTMENTS & EMPLOYEES
+// -------------------------------------------------------------
+
+model Department {
+  id          String      @id @default(uuid())
+  companyId   String
+  name        String
+  code        String?
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees   Employee[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("departments")
+}
+
+model Employee {
+  id                String          @id @default(uuid())
+  companyId         String
+  userId            String?         // Linked auth account (nullable before signup)
+  employeeCode      String          // e.g. "EMP001"
+  firstName         String
+  lastName          String
+  email             String          // Official email
+  phone             String?         // Sensitive: Protected from public directory
+  designation       String
+  departmentId      String?
+  managerId         String?         // Reporting manager (self-relation)
+  dateOfJoining     DateTime        @db.Date
+  status            EmployeeStatus  @default(ACTIVE)
+  emergencyContact  String?         // Sensitive: Protected from public directory
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user              User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department        Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  
+  // Manager hierarchy (self-referencing relation)
+  manager           Employee?       @relation("EmployeeHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports     Employee[]      @relation("EmployeeHierarchy")
+
+  attendanceRecords AttendanceRecord[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]  @relation("EmployeeLeaves")
+  reviewedLeaves    LeaveRequest[]  @relation("ReviewerLeaves")
+
+  @@unique([companyId, employeeCode])
+  @@unique([companyId, email])
+  @@index([companyId, status])
+  @@index([companyId, managerId])
+  @@index([companyId, departmentId])
+  @@map("employees")
+}
+
+// -------------------------------------------------------------
+// ATTENDANCE & AUDIT RECORDS
+// -------------------------------------------------------------
+
+model AttendanceRecord {
+  id                String            @id @default(uuid())
+  companyId         String
+  employeeId        String
+  date              DateTime          @db.Date // Workday date in company timezone (IST)
+  checkInTime       DateTime?         // Server-generated UTC timestamp
+  checkOutTime      DateTime?         // Server-generated UTC timestamp
+  totalHours        Decimal?          @db.Decimal(5, 2)
+  status            AttendanceStatus  @default(PRESENT)
+  
+  // Optional client metadata for audit (no geofencing/strict IP enforcement)
+  checkInIp         String?
+  checkOutIp        String?
+  checkInNotes      String?
+  checkOutNotes     String?
+
+  // Authorized Corrections / Regularizations
+  isCorrected       Boolean           @default(false)
+  correctionReason  String?
+  correctedByUserId String?
+  correctedAt       DateTime?
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee          Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  auditLogs         AttendanceAudit[]
+
+  @@unique([companyId, employeeId, date])
+  @@index([companyId, date])
+  @@index([companyId, employeeId])
+  @@index([companyId, status])
+  @@map("attendance_records")
+}
+
+model AttendanceAudit {
+  id                  String            @id @default(uuid())
+  attendanceRecordId  String
+  changedByUserId     String
+  action              AuditAction
+  oldValues           Json?
+  newValues           Json?
+  reason              String?
+  ipAddress           String?
+  userAgent           String?
+  createdAt           DateTime          @default(now())
+
+  attendanceRecord    AttendanceRecord  @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceRecordId])
+  @@map("attendance_audits")
+}
+
+// -------------------------------------------------------------
+// LEAVE POLICIES, BALANCES & WORKFLOWS
+// -------------------------------------------------------------
+
+model LeaveType {
+  id                  String        @id @default(uuid())
+  companyId           String
+  name                String        // Casual Leave, Sick Leave, Paid Leave
+  code                String        // CL, SL, PL
+  daysAllowedPerYear  Decimal       @db.Decimal(4, 1)
+  isCarryForward      Boolean       @default(false)
+  maxCarryForwardDays Decimal       @default(0) @db.Decimal(4, 1)
+  isPaid              Boolean       @default(true)
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  company             Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  balances            LeaveBalance[]
+  requests            LeaveRequest[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id              String        @id @default(uuid())
+  companyId       String
+  employeeId      String
+  leaveTypeId     String
+  year            Int           // Calendar year (e.g. 2026)
+  allocatedDays   Decimal       @db.Decimal(4, 1)
+  carriedOverDays Decimal       @default(0) @db.Decimal(4, 1)
+  usedDays        Decimal       @default(0) @db.Decimal(4, 1)
+  pendingDays     Decimal       @default(0) @db.Decimal(4, 1) // Reserved by pending requests
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType       LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, employeeId, leaveTypeId, year])
+  @@index([companyId, employeeId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id                String              @id @default(uuid())
+  companyId         String
+  employeeId        String
+  leaveTypeId       String
+  startDate         DateTime            @db.Date
+  endDate           DateTime            @db.Date
+  totalDays         Decimal             @db.Decimal(4, 1)
+  isHalfDay         Boolean             @default(false)
+  halfDayPeriod     LeaveHalfDayPeriod?
+  reason            String
+  status            LeaveRequestStatus  @default(PENDING)
+  
+  reviewerId        String?             // Employee ID of reviewing manager/HR
+  reviewerComments  String?
+  reviewedAt        DateTime?
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee          Employee            @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType         LeaveType           @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  reviewer          Employee?           @relation("ReviewerLeaves", fields: [reviewerId], references: [id], onDelete: SetNull)
+  history           LeaveHistory[]
+
+  @@index([companyId, employeeId])
+  @@index([companyId, status])
+  @@index([companyId, startDate, endDate])
+  @@map("leave_requests")
+}
+
+model LeaveHistory {
+  id              String              @id @default(uuid())
+  companyId       String
+  leaveRequestId  String
+  actorUserId     String
+  action          AuditAction
+  previousStatus  LeaveRequestStatus?
+  newStatus       LeaveRequestStatus
+  comments        String?
+  createdAt       DateTime            @default(now())
+
+  company         Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leaveRequest    LeaveRequest        @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([leaveRequestId])
+  @@map("leave_histories")
+}
+
+// -------------------------------------------------------------
+// HOLIDAYS & AUDIT LOGS
+// -------------------------------------------------------------
+
+model Holiday {
+  id          String      @id @default(uuid())
+  companyId   String
+  name        String
+  date        DateTime    @db.Date
+  isOptional  Boolean     @default(false)
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@index([companyId])
+  @@map("holidays")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  companyId   String
+  actorUserId String?
+  entityType  String      // "EMPLOYEE", "ATTENDANCE", "LEAVE", "COMPANY", "DEPARTMENT"
+  entityId    String
+  action      AuditAction
+  ipAddress   String?
+  userAgent   String?
+  changes     Json?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}
