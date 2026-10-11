@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   ShieldCheck,
   Database,
@@ -14,7 +15,11 @@ import {
   Terminal,
   Activity,
   Layers,
+  Lock,
+  LogIn,
+  LayoutDashboard,
 } from 'lucide-react';
+import { useAuth } from '../context/auth-context';
 
 interface HealthData {
   status: string;
@@ -28,6 +33,7 @@ interface HealthData {
 }
 
 export default function HomePage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,18 +62,48 @@ export default function HomePage() {
     <main className="min-h-screen bg-slate-950 text-slate-100 bg-radial-glow px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-12">
         {/* Header / Hero Section */}
-        <header className="text-center space-y-4">
+        <header className="text-center space-y-5">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Milestone 1 Complete · Foundation & Schema Skeleton
+            Milestone 2 Verified · Authentication & Multi-Tenant Isolation
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
             HRMS Multi-Tenant Platform
           </h1>
           <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-400">
             Enterprise-ready Human Resource Management System architected for Indian SMEs,
-            featuring strict multi-tenant isolation, configurable attendance policies, and audit trails.
+            featuring strict multi-tenant isolation, HttpOnly session cookies, CSRF defense, and audit trails.
           </p>
+
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition duration-200"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Go to Workspace Dashboard ({user.activeRole})
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition duration-200"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In to Enterprise Workspace
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-800 transition duration-200"
+            >
+              <Lock className="w-4 h-4 text-emerald-400" />
+              View Security & Tenant Controls
+            </Link>
+          </div>
         </header>
 
         {/* Live Service Status Banner */}
