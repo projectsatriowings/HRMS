@@ -57,8 +57,9 @@ function LoginFormContent() {
     }
   };
 
-  const handleFillTestEmail = (testEmail: string) => {
+  const handleFillTestAccount = (testEmail: string) => {
     setEmail(testEmail);
+    setPassword('Password123!');
     setErrorMessage(null);
   };
 
@@ -200,43 +201,51 @@ function LoginFormContent() {
         </div>
       </div>
 
-      {/* Quick Fill Testing Assist (Email only - NO plaintext passwords exposed) */}
+      {/* Quick Fill Testing Assist */}
       <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 space-y-2.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
-          Test Account Email Presets (Development):
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 font-semibold text-slate-300">
+            <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+            Test Account Presets (Development):
+          </div>
+          <span className="text-[11px] text-indigo-300 font-mono bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded">
+            PW: Password123!
+          </span>
         </div>
+        <p className="text-[11px] text-slate-400">
+          Click any preset to auto-fill email and test password:
+        </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <button
             type="button"
-            onClick={() => handleFillTestEmail('priya.hr@acme-example.test')}
-            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left text-slate-300 transition"
+            onClick={() => handleFillTestAccount('priya.hr@acme-example.test')}
+            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 text-left text-slate-300 transition group"
           >
-            <span className="block font-medium text-white">Acme HR Admin</span>
+            <span className="block font-medium text-white group-hover:text-indigo-300">Acme HR Admin</span>
             <span className="block text-[10px] text-slate-400 font-mono truncate">priya.hr@...</span>
           </button>
           <button
             type="button"
-            onClick={() => handleFillTestEmail('rajesh.manager@acme-example.test')}
-            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left text-slate-300 transition"
+            onClick={() => handleFillTestAccount('rajesh.manager@acme-example.test')}
+            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 text-left text-slate-300 transition group"
           >
-            <span className="block font-medium text-white">Acme Manager</span>
+            <span className="block font-medium text-white group-hover:text-indigo-300">Acme Manager</span>
             <span className="block text-[10px] text-slate-400 font-mono truncate">rajesh.manager@...</span>
           </button>
           <button
             type="button"
-            onClick={() => handleFillTestEmail('ananya.dev@acme-example.test')}
-            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left text-slate-300 transition"
+            onClick={() => handleFillTestAccount('ananya.dev@acme-example.test')}
+            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 text-left text-slate-300 transition group"
           >
-            <span className="block font-medium text-white">Acme Employee</span>
+            <span className="block font-medium text-white group-hover:text-indigo-300">Acme Employee</span>
             <span className="block text-[10px] text-slate-400 font-mono truncate">ananya.dev@...</span>
           </button>
           <button
             type="button"
-            onClick={() => handleFillTestEmail('neha.consultant@example.test')}
-            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-left text-slate-300 transition"
+            onClick={() => handleFillTestAccount('neha.consultant@example.test')}
+            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/50 text-left text-slate-300 transition group"
           >
-            <span className="block font-medium text-white">Multi-Tenant User</span>
+            <span className="block font-medium text-white group-hover:text-indigo-300">Multi-Tenant User</span>
             <span className="block text-[10px] text-slate-400 font-mono truncate">neha.consultant@...</span>
           </button>
         </div>
